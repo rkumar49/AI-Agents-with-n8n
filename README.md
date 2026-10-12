@@ -1,8 +1,4 @@
 
-
-https://github.com/user-attachments/assets/514ae99e-8445-45eb-8f19-d34640bbeb56
-
-
 # Personal Voice Assistant
 
 A personal voice assistant built with **n8n** and **Vapi**.

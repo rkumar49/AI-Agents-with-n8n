@@ -1,0 +1,705 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        672
+      ],
+      "id": "299a0282-f61f-4ce8-9df9-b553357433cd",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "body.message.artifact.messagesOpenAIFormatted",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1200,
+        368
+      ],
+      "id": "9e23d8a9-e6c8-4c35-8c5c-5c400dab18ea",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "role",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        368
+      ],
+      "id": "e1ae9960-6dc2-413a-a69d-a10ec5940721",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        320
+      ],
+      "id": "5c4eb8f9-0da8-41e6-a52a-b9e8ca1e23de",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.role }}",
+        "options": {
+          "systemMessage": "=The current date is: {{ $now }}\n\nCheck if the date that the user wanted is available in the Availability Tool.\n\nFor example, the message to extract could look similar to \"Just to confirm, you would to make a tomorrow at 6 PM under the name Ali for Dinner. That correct?\"\n\nMake sure that you take the latest message response for the confirmed booking, if there are multiple confirmations of bookings in the message, choose the latest one.\n\nIf there is already a booking at the users wanted booking time and date, return with only the output \"Unavailable\". If there are currently no bookings at the time, return with only the output \"Available\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -560,
+        368
+      ],
+      "id": "0a3e9f82-b137-4937-91ae-95040e969f89",
+      "name": "Check Availability"
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "calendar": {
+          "__rl": true,
+          "value": "rahul.kumarskle@gmail.com",
+          "mode": "list",
+          "cachedResultName": "rahul.kumarskle@gmail.com"
+        },
+        "timeMin": "={{ $fromAI(\"startTime\",\"start time of booking\") }}",
+        "timeMax": "={{ $fromAI(\"endTime\",\"end time of booking, assume 2 hours after startTime\") }}",
+        "options": {
+          "outputFormat": "bookedSlots"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.2,
+      "position": [
+        -384,
+        672
+      ],
+      "id": "1006774a-ad67-46b6-8635-d5e3e04d8757",
+      "name": "Availability Tool",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "uyZ6NxLAGmtXOwsJ",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7d80c682-fea4-4056-9733-b5ca4c9b529b",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "Available",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "8f61f93a-9069-4a3e-b8c3-ff647fa1cb10",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "Output: Available",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -224,
+        368
+      ],
+      "id": "4fb2e605-c7b4-4de5-a29d-c9f5949ea488",
+      "name": "If Available"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Aggregate').item.json.role }}",
+        "options": {
+          "systemMessage": "=Extract the start time, date and purpose of the booking, and the name for the booking. Make sure your response is \"I have successfully created the booking for [Persons Name] at [Time] on [Date] for [Reason for Booking], Ali looks forward to seeing you soon!\n\nMake sure to create the booking with the calender tool, and to also send an email so that we get a notification of the booking. And also call the CRM Manager Tool.\n\nMake sure to also extract the phone number of the user here, but do not mention it in your output message.: {{ $('createReservation').item.json.body.message.call.customer.number }}\n\nThe current date is: {{ $now }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        32,
+        64
+      ],
+      "id": "9b25fc88-e9c1-4668-a534-2209269b308b",
+      "name": "Create Booking"
+    },
+    {
+      "parameters": {
+        "authentication": "airtableOAuth2Api",
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appGVzb0V099dMeif",
+          "mode": "list",
+          "cachedResultName": "Bookings with Ali",
+          "cachedResultUrl": "https://airtable.com/appGVzb0V099dMeif"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblmQ70d9EbOP18KX",
+          "mode": "list",
+          "cachedResultName": "Bookings",
+          "cachedResultUrl": "https://airtable.com/appGVzb0V099dMeif/tblmQ70d9EbOP18KX"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $fromAI(\"Name\",\"Name of person\") }}",
+            "Date of Reservation": "={{ $fromAI(\"Date\",\"The day and month reservation is booked for\") }}",
+            "Time of Reservation": "={{ $fromAI(\"Time\",\"The time of the reservation\") }}",
+            "Phone Number": "={{ $('createReservation').item.json.body.message.call.customer.number }}",
+            "Purpose": "={{ $fromAI(\"Purpose\",\"purpose of the call\") }}",
+            "Time Change": "={{ $fromAI(\"bookingChange\",\"Check to see if the person changed their booking, otherwise return as 'None'\") }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Date of Reservation",
+              "displayName": "Date of Reservation",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Time of Reservation",
+              "displayName": "Time of Reservation",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Phone Number",
+              "displayName": "Phone Number",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Purpose",
+              "displayName": "Purpose",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Time Change",
+              "displayName": "Time Change",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "ignoreTypeMismatchErrors": false,
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtableTool",
+      "typeVersion": 2.1,
+      "position": [
+        160,
+        320
+      ],
+      "id": "9f3de4c6-fc79-4300-9cd5-4c2a0a916264",
+      "name": "CRM Manager",
+      "credentials": {
+        "airtableOAuth2Api": {
+          "id": "MD6gKXBmdKHcMjSW",
+          "name": "Airtable account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n    \"results\": [\n        {\n            \"toolCallId\":\"{{ $('createReservation').item.json.body.message.toolCallList[0].id }}\",\n            \"result\": \"{{ $json.output }}\"\n        }\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        768,
+        64
+      ],
+      "id": "aef205fa-f468-4faf-84da-ecfa48c8931c",
+      "name": "End Response"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "d343037f-da8f-4c7a-9733-903cf904bd04",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1776,
+        384
+      ],
+      "id": "35616f64-a07f-4748-9f7c-e5b6d6f1d179",
+      "name": "createReservation",
+      "webhookId": "d343037f-da8f-4c7a-9733-903cf904bd04"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2f2d0f75-5bfa-4d8f-bf5f-542cbcc9a0ee",
+              "leftValue": "={{ $json.body.message.type }}",
+              "rightValue": "tool-calls",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1536,
+        384
+      ],
+      "id": "b16eecaf-1792-4898-ae9d-d47a0fcda9d8",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "content": "Only Triggers Automation when Voice Agent uses Tool Call, and makes sure that the call is still in progress.",
+        "height": 280,
+        "width": 480
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1824,
+        304
+      ],
+      "id": "658f30d5-8956-46ad-9e35-aba55c34e173",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "Grabs last 10 Messages from Transcript",
+        "height": 280,
+        "width": 200,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -976,
+        288
+      ],
+      "id": "ddb6d759-fd63-48b9-add5-45e64492b598",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "=",
+          "mode": "id"
+        },
+        "start": "={{ $fromAI(\"startTime\",\"the starting time of the booking\") }}",
+        "end": "={{ $fromAI(\"endTime\",\"the end time of the booking, make it to be 2 hours after startTime\") }}",
+        "additionalFields": {
+          "description": "={{ $fromAI(\"Purpose\",\"The purpose of the call, the formatted response should be [The Purpose of the Call Is: Purpose]\") }}",
+          "summary": "={{ $fromAI(\"name\",\"The name of the person making the booking\") }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        352
+      ],
+      "id": "fb13b016-5ae3-4d79-a9b7-280b9ff1a1b3",
+      "name": "Create Booking1",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "uyZ6NxLAGmtXOwsJ",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "rahul.kumarskle@gmail.com",
+        "subject": "={{ $fromAI(\"Subject\",\"Make this the purpose of the call and the person who booked it, keep it short and sweet\") }}",
+        "emailType": "text",
+        "message": "={{ $fromAI(\"bookingDetails\",\"This should contain all the details for the booking (time, date and purpose) for an easy to read email format\") }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.1,
+      "position": [
+        304,
+        320
+      ],
+      "id": "7d037638-407a-43ad-b711-b888694be165",
+      "name": "Gmail",
+      "webhookId": "354d63b3-6209-455c-a341-3342783efca7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "nvDLkqbA44XCjHjt",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Returns a response to the user saying that the booking is not available at that time.",
+        "height": 240,
+        "width": 360,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        592
+      ],
+      "id": "e070ddf6-0170-499b-90f4-45e0acc00f73",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "Notifies User in Calender, CRM and Email",
+        "height": 200,
+        "width": 340,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a44c1c6a-fc43-4246-929a-57655364e27b",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "maxItems": 10,
+        "keep": "lastItems"
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -944,
+        368
+      ],
+      "id": "0f0fa82c-0892-4c3e-832e-f9f8c0a7952c",
+      "name": "Last 10 Messages"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n    \"results\": [\n        {\n            \"toolCallId\":\"{{ $('createReservation').item.json.body.message.toolCallList[0].id }}\",\n            \"result\": \"I'm sorry, but we don't have any available booking slots for that time, would you like to make another one?\"\n        }\n    ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        640
+      ],
+      "id": "609cb350-1b51-40ca-8d23-cb2ffee7ac2b",
+      "name": "Not Available"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Check Availability",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Last 10 Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Check Availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Create Booking",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Availability": {
+      "main": [
+        [
+          {
+            "node": "If Available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Availability Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Check Availability",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Available": {
+      "main": [
+        [
+          {
+            "node": "Create Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not Available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Booking": {
+      "main": [
+        [
+          {
+            "node": "End Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM Manager": {
+      "ai_tool": [
+        [
+          {
+            "node": "Create Booking",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "createReservation": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Booking1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Create Booking",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "Create Booking",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Last 10 Messages": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8618d361-f008-47f2-b197-15177f5144cc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d6a080db0658011fa115b669646962f09c3b2373d930c454739a3bcf316724ba"
+  },
+  "nodeGroups": [],
+  "id": "yeuQSnLapQ9uwYgf",
+  "tags": [
+    {
+      "name": "Youtube Video Inspo",
+      "id": "BldqpInqAsrgffdk",
+      "updatedAt": "2026-10-12T01:00:12.351Z",
+      "createdAt": "2026-10-12T01:00:12.351Z"
+    },
+    {
+      "name": "Content",
+      "id": "d1BEPHsybwspFSjF",
+      "updatedAt": "2026-10-12T01:00:12.327Z",
+      "createdAt": "2026-10-12T01:00:12.327Z"
+    }
+  ]
+}
